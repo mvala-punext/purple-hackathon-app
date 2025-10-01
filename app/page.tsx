@@ -79,7 +79,7 @@ export default function MoneyForLife() {
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mb-4">
               <TrendingUp className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="text-3xl font-bold">Welcome to Money for Life XXX</CardTitle>
+            <CardTitle className="text-3xl font-bold">Welcome to Knows You</CardTitle>
             <CardDescription className="text-lg italic">"No effort. No stress. No overthinking."</CardDescription>
           </CardHeader>
           <CardContent>
