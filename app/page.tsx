@@ -38,6 +38,11 @@ type Integration = {
 }
 
 export default function MoneyForLife() {
+  // Helper function to format numbers with thousand separators
+  const formatAmount = (amount: number) => {
+    return amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  }
+
   const [currentScreen, setCurrentScreen] = useState<Screen>("login")
   const [isProcessingTrade, setIsProcessingTrade] = useState(false)
   const [tradeComplete, setTradeComplete] = useState(false)
@@ -503,7 +508,7 @@ export default function MoneyForLife() {
                   {/* Total Value Display */}
                   <div className="text-center">
                     <p className="text-5xl font-bold text-purple-600">
-                      {currency === "USD" ? "$" : ""}{totalAmount.toFixed(0)}
+                      {currency === "USD" ? "$" : currency === "EUR" ? "€" : ""}{formatAmount(totalAmount)}
                     </p>
                     <p className="text-base text-muted-foreground mt-2">Total Value</p>
                   </div>
@@ -600,7 +605,7 @@ export default function MoneyForLife() {
                             </div>
                             <div className="text-right">
                               <p className="font-semibold">
-                                {holding.currency === "USD" ? "$" : ""}{holding.amount.toFixed(2)}
+                                {holding.currency === "USD" ? "$" : holding.currency === "EUR" ? "€" : ""}{formatAmount(holding.amount)}
                               </p>
                               <p className="text-sm text-muted-foreground">{percentage.toFixed(1)}%</p>
                             </div>
@@ -644,7 +649,7 @@ export default function MoneyForLife() {
                         {recommendation.type === "buy" ? "Buy" : "Sell"}{" "}
                         {recommendation.investmentCurrency === "USD" && "$"}
                         {recommendation.investmentCurrency === "EUR" && "€"}
-                        {recommendation.investmentAmount}
+                        {formatAmount(recommendation.investmentAmount)}
                         {!["USD", "EUR"].includes(recommendation.investmentCurrency) && ` ${recommendation.investmentCurrency}`}
                         {" "}of {recommendation.investmentInstrument}
                       </Button>
@@ -676,7 +681,7 @@ export default function MoneyForLife() {
                         <span className="font-semibold text-purple-600">
                           {currentTradeRecommendation.investmentCurrency === "USD" && "$"}
                           {currentTradeRecommendation.investmentCurrency === "EUR" && "€"}
-                          {currentTradeRecommendation.investmentAmount}
+                          {formatAmount(currentTradeRecommendation.investmentAmount)}
                           {!["USD", "EUR"].includes(currentTradeRecommendation.investmentCurrency) && ` ${currentTradeRecommendation.investmentCurrency}`}
                         </span>{" "}
                         {currentTradeRecommendation.type} of{" "}
@@ -704,7 +709,7 @@ export default function MoneyForLife() {
                         <span className="font-semibold text-green-700">
                           {currentTradeRecommendation.investmentCurrency === "USD" && "$"}
                           {currentTradeRecommendation.investmentCurrency === "EUR" && "€"}
-                          {currentTradeRecommendation.investmentAmount}
+                          {formatAmount(currentTradeRecommendation.investmentAmount)}
                           {!["USD", "EUR"].includes(currentTradeRecommendation.investmentCurrency) && ` ${currentTradeRecommendation.investmentCurrency}`}
                         </span>{" "}
                         of{" "}
@@ -929,7 +934,7 @@ export default function MoneyForLife() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-purple-700">$400 / $1000</span>
+                      <span className="font-medium text-purple-700">${formatAmount(400)} / ${formatAmount(1000)}</span>
                       <span className="font-semibold text-purple-600">40% complete</span>
                     </div>
                     <div className="h-3 bg-purple-100 rounded-full overflow-hidden">
