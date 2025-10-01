@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import {
   Check,
   Building2,
@@ -54,6 +53,7 @@ export default function MoneyForLife() {
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
+  const [currentTradeRecommendation, setCurrentTradeRecommendation] = useState<Recommendation | null>(null)
 
   // Fetch data when entering portfolio screen
   useEffect(() => {
@@ -113,13 +113,29 @@ export default function MoneyForLife() {
   }
 
   const handleBuyRecommendation = async (recommendationId: string) => {
+    // Find the recommendation being traded
+    const recommendation = recommendations.find(r => r.id === recommendationId)
+    if (!recommendation) return
+
+    setCurrentTradeRecommendation(recommendation)
     setIsProcessingTrade(true)
+    setTradeComplete(false)
+
     try {
-      await executeTrade({ recommendationId })
+      // Add minimum delay for better UX (show processing animation)
+      await Promise.all([
+        executeTrade({ recommendationId }),
+        new Promise(resolve => setTimeout(resolve, 1500)) // Minimum 1.5s processing animation
+      ])
+
+      // Show success animation
       setTradeComplete(true)
+
+      // Wait for success animation to be visible
       setTimeout(async () => {
         setIsProcessingTrade(false)
         setTradeComplete(false)
+        setCurrentTradeRecommendation(null)
         // Refresh data after trade
         await fetchPortfolioData()
         await fetchRecommendationsData()
@@ -127,6 +143,8 @@ export default function MoneyForLife() {
     } catch (error) {
       console.error("Failed to execute trade:", error)
       setIsProcessingTrade(false)
+      setTradeComplete(false)
+      setCurrentTradeRecommendation(null)
     }
   }
 
@@ -268,11 +286,8 @@ export default function MoneyForLife() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
         <div className="max-w-4xl mx-auto p-4 py-8">
-          <div className="mb-2">
+          <div className="mb-6">
             <h1 className="text-4xl font-bold">Your Portfolio</h1>
-            <p className="text-3xl font-semibold text-purple-600 mt-2">
-              {currency === "USD" ? "$" : ""}{totalAmount.toFixed(2)}
-            </p>
           </div>
 
           {!hasInvestments ? (
@@ -293,6 +308,14 @@ export default function MoneyForLife() {
             <Card className="mb-6">
               <CardContent className="p-8">
                 <div className="flex flex-col items-center gap-6">
+                  {/* Total Value Display */}
+                  <div className="text-center">
+                    <p className="text-5xl font-bold text-purple-600">
+                      {currency === "USD" ? "$" : ""}{totalAmount.toFixed(0)}
+                    </p>
+                    <p className="text-base text-muted-foreground mt-2">Total Value</p>
+                  </div>
+
                   {/* Multi-segment donut chart */}
                   <div className="relative w-64 h-64 p-2">
                     <svg viewBox="-5 -5 110 110" className="transform -rotate-90 overflow-visible">
@@ -335,30 +358,21 @@ export default function MoneyForLife() {
                         )
                       })}
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="text-center">
-                        {hoveredSegment !== null ? (
-                          <>
-                            <p className="text-lg font-semibold px-4 leading-tight">
-                              {sortedInstruments[hoveredSegment].instrument}
-                            </p>
-                            <p className="text-2xl font-bold mt-1">
-                              {currency === "USD" ? "$" : ""}{sortedInstruments[hoveredSegment].amount.toFixed(0)}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {((sortedInstruments[hoveredSegment].amount / totalAmount) * 100).toFixed(1)}%
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-3xl font-bold">
-                              {currency === "USD" ? "$" : ""}{totalAmount.toFixed(0)}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">Total Value</p>
-                          </>
-                        )}
+                    {hoveredSegment !== null && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="text-center bg-white/95 rounded-lg px-4 py-3 shadow-lg">
+                          <p className="text-base font-semibold leading-tight">
+                            {sortedInstruments[hoveredSegment].instrument}
+                          </p>
+                          <p className="text-2xl font-bold mt-1 text-purple-600">
+                            {currency === "USD" ? "$" : ""}{sortedInstruments[hoveredSegment].amount.toFixed(0)}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {((sortedInstruments[hoveredSegment].amount / totalAmount) * 100).toFixed(1)}%
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Instruments list */}
@@ -436,8 +450,11 @@ export default function MoneyForLife() {
                         className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                       >
                         {recommendation.type === "buy" ? "Buy" : "Sell"}{" "}
-                        {recommendation.investmentCurrency === "USD" ? "$" : ""}
-                        {recommendation.investmentAmount} of {recommendation.investmentInstrument}
+                        {recommendation.investmentCurrency === "USD" && "$"}
+                        {recommendation.investmentCurrency === "EUR" && "€"}
+                        {recommendation.investmentAmount}
+                        {!["USD", "EUR"].includes(recommendation.investmentCurrency) && ` ${recommendation.investmentCurrency}`}
+                        {" "}of {recommendation.investmentInstrument}
                       </Button>
                     </div>
                   ))}
@@ -464,31 +481,58 @@ export default function MoneyForLife() {
           </Card>
         </div>
 
-        {isProcessingTrade && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-            <Card className="w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
+        {isProcessingTrade && currentTradeRecommendation && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+            <Card className="w-full max-w-md mx-4 shadow-2xl animate-in zoom-in-95 duration-300">
               <CardContent className="p-12 text-center space-y-6">
                 {!tradeComplete ? (
                   <>
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center animate-pulse">
-                      <Loader2 className="h-10 w-10 text-white animate-spin" />
+                    <div className="relative mx-auto w-24 h-24">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full animate-pulse" />
+                      <div className="absolute inset-2 bg-white rounded-full" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader2 className="h-12 w-12 text-purple-600 animate-spin" />
+                      </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <h2 className="text-2xl font-bold">Processing your trade...</h2>
-                      <p className="text-muted-foreground">
-                        We're executing your $500 purchase of VOO. This will only take a moment.
+                      <p className="text-muted-foreground text-base">
+                        We're executing your{" "}
+                        <span className="font-semibold text-purple-600">
+                          {currentTradeRecommendation.investmentCurrency === "USD" ? "$" : ""}
+                          {currentTradeRecommendation.investmentAmount}
+                        </span>{" "}
+                        {currentTradeRecommendation.type} of{" "}
+                        <span className="font-semibold text-purple-600">
+                          {currentTradeRecommendation.investmentInstrument}
+                        </span>
+                        . This will only take a moment.
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-                      <Check className="h-10 w-10 text-white" />
+                    <div className="relative mx-auto w-24 h-24">
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full animate-in zoom-in duration-500" />
+                      <div className="absolute inset-0 flex items-center justify-center animate-in zoom-in duration-500 delay-100">
+                        <Check className="h-14 w-14 text-white animate-in zoom-in duration-300 delay-150" strokeWidth={3} />
+                      </div>
+                      {/* Success pulse ring */}
+                      <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" />
                     </div>
-                    <div className="space-y-2">
-                      <h2 className="text-2xl font-bold text-green-600">Trade Complete!</h2>
-                      <p className="text-muted-foreground">
-                        Successfully purchased $500 of VOO. Your portfolio has been updated.
+                    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                      <h2 className="text-3xl font-bold text-green-600">Trade Complete!</h2>
+                      <p className="text-muted-foreground text-base">
+                        Successfully {currentTradeRecommendation.type === "buy" ? "purchased" : "sold"}{" "}
+                        <span className="font-semibold text-green-700">
+                          {currentTradeRecommendation.investmentCurrency === "USD" ? "$" : ""}
+                          {currentTradeRecommendation.investmentAmount}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-green-700">
+                          {currentTradeRecommendation.investmentInstrument}
+                        </span>
+                        . Your portfolio has been updated.
                       </p>
                     </div>
                   </>
@@ -501,18 +545,18 @@ export default function MoneyForLife() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
           <div className="max-w-4xl mx-auto flex">
             <button
-              onClick={() => setCurrentScreen("portfolio")}
-              className="flex-1 py-4 flex flex-col items-center gap-1 text-blue-600 font-medium"
-            >
-              <TrendingUp className="h-6 w-6" />
-              <span className="text-sm">Portfolio</span>
-            </button>
-            <button
               onClick={() => setCurrentScreen("challenges")}
               className="flex-1 py-4 flex flex-col items-center gap-1 text-gray-500"
             >
               <Target className="h-6 w-6" />
               <span className="text-sm">Challenges</span>
+            </button>
+            <button
+              onClick={() => setCurrentScreen("portfolio")}
+              className="flex-1 py-4 flex flex-col items-center gap-1 text-blue-600 font-medium"
+            >
+              <TrendingUp className="h-6 w-6" />
+              <span className="text-sm">Portfolio</span>
             </button>
             <button
               onClick={() => setCurrentScreen("events")}
@@ -595,18 +639,18 @@ export default function MoneyForLife() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
           <div className="max-w-4xl mx-auto flex">
             <button
-              onClick={() => setCurrentScreen("portfolio")}
-              className="flex-1 py-4 flex flex-col items-center gap-1 text-gray-500"
-            >
-              <TrendingUp className="h-6 w-6" />
-              <span className="text-sm">Portfolio</span>
-            </button>
-            <button
               onClick={() => setCurrentScreen("challenges")}
               className="flex-1 py-4 flex flex-col items-center gap-1 text-gray-500"
             >
               <Target className="h-6 w-6" />
               <span className="text-sm">Challenges</span>
+            </button>
+            <button
+              onClick={() => setCurrentScreen("portfolio")}
+              className="flex-1 py-4 flex flex-col items-center gap-1 text-gray-500"
+            >
+              <TrendingUp className="h-6 w-6" />
+              <span className="text-sm">Portfolio</span>
             </button>
             <button
               onClick={() => setCurrentScreen("events")}
@@ -624,54 +668,137 @@ export default function MoneyForLife() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
       <div className="max-w-4xl mx-auto p-4 py-8">
-        <h1 className="text-4xl font-bold mb-8">This Week's Challenges</h1>
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold mb-2">This Week's Challenges</h1>
+          <p className="text-muted-foreground text-lg">Complete challenges to build healthy financial habits</p>
+        </div>
 
-        <div className="space-y-6">
-          {/* Challenge 1 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Invest $100 this month</CardTitle>
-              <CardDescription>You're making great progress!</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">$40 / $100</span>
+        {/* Level & Points Card */}
+        <Card className="mb-6 bg-gradient-to-br from-purple-600 to-indigo-600 text-white border-0 shadow-lg">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/30">
+                    <Trophy className="h-12 w-12 text-white" />
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-purple-900 font-bold text-sm px-3 py-1 rounded-full border-2 border-white">
+                    Lv 5
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-bold">Challenge Master</h2>
+                  <p className="text-purple-100 text-lg">Keep up the great work!</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="flex-1 h-3 bg-white/20 rounded-full overflow-hidden w-64">
+                      <div className="h-full bg-gradient-to-r from-yellow-300 to-yellow-400 rounded-full" style={{ width: "65%" }} />
+                    </div>
+                    <span className="text-sm font-semibold text-purple-100 whitespace-nowrap">650 / 1000 XP</span>
+                  </div>
+                </div>
               </div>
-              <Progress value={40} className="h-3" />
-              <p className="text-sm text-muted-foreground">40% complete</p>
+              <div className="text-right">
+                <div className="text-5xl font-bold mb-1">650</div>
+                <div className="text-purple-200 text-lg">Challenge Points</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          {/* Challenge 1 */}
+          <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-purple-500 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-1">Invest $100 this month</h3>
+                      <p className="text-muted-foreground">You're making great progress!</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1.5 rounded-full text-sm font-bold">
+                      <Trophy className="h-4 w-4" />
+                      <span>100 pts</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-purple-700">$40 / $100</span>
+                      <span className="font-semibold text-purple-600">40% complete</span>
+                    </div>
+                    <div className="h-3 bg-purple-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full" style={{ width: "40%" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {/* Challenge 2 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Buy an ESG ETF</CardTitle>
-              <CardDescription>Invest in sustainable companies</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">Not started</span>
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-500 rounded-lg">
+                  <Leaf className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-1">Buy an ESG ETF</h3>
+                      <p className="text-muted-foreground">Invest in sustainable companies</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-bold">
+                      <Trophy className="h-4 w-4" />
+                      <span>150 pts</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-blue-700">Not started</span>
+                      <span className="font-semibold text-blue-600">0% complete</span>
+                    </div>
+                    <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style={{ width: "0%" }} />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <Progress value={0} className="h-3" />
-              <p className="text-sm text-muted-foreground">0% complete</p>
             </CardContent>
           </Card>
 
           {/* Challenge 3 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Keep monthly spending under budget</CardTitle>
-              <CardDescription>You're almost there!</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">22 / 30 days</span>
+          <Card className="border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-indigo-500 rounded-lg">
+                  <Wallet className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-1">Keep monthly spending under budget</h3>
+                      <p className="text-muted-foreground">You're almost there!</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1.5 rounded-full text-sm font-bold">
+                      <Trophy className="h-4 w-4" />
+                      <span>200 pts</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-indigo-700">22 / 30 days</span>
+                      <span className="font-semibold text-indigo-600">75% complete</span>
+                    </div>
+                    <div className="h-3 bg-indigo-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full" style={{ width: "75%" }} />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <Progress value={75} className="h-3" />
-              <p className="text-sm text-muted-foreground">75% complete</p>
             </CardContent>
           </Card>
         </div>
@@ -680,18 +807,18 @@ export default function MoneyForLife() {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
         <div className="max-w-4xl mx-auto flex">
           <button
-            onClick={() => setCurrentScreen("portfolio")}
-            className="flex-1 py-4 flex flex-col items-center gap-1 text-gray-500"
-          >
-            <TrendingUp className="h-6 w-6" />
-            <span className="text-sm">Portfolio</span>
-          </button>
-          <button
             onClick={() => setCurrentScreen("challenges")}
             className="flex-1 py-4 flex flex-col items-center gap-1 text-purple-600 font-medium"
           >
             <Target className="h-6 w-6" />
             <span className="text-sm">Challenges</span>
+          </button>
+          <button
+            onClick={() => setCurrentScreen("portfolio")}
+            className="flex-1 py-4 flex flex-col items-center gap-1 text-gray-500"
+          >
+            <TrendingUp className="h-6 w-6" />
+            <span className="text-sm">Portfolio</span>
           </button>
           <button
             onClick={() => setCurrentScreen("events")}
