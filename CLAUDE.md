@@ -108,6 +108,15 @@ API client and types are located in:
 
 ### Available Endpoints
 
+**GET /profiles**
+- Returns array of all user profiles
+- Fetched on login, displayed in profile selection screen
+- User must select a profile before continuing to integrations
+
+**GET /profiles/{id}**
+- Returns specific user profile by ID
+- Used to fetch detailed profile information
+
 **GET /recommendations**
 - Returns array of AI-generated investment recommendations
 - Displayed in Portfolio screen
@@ -131,10 +140,14 @@ API client and types are located in:
 
 ### Data Flow
 
-1. User navigates to Portfolio screen → triggers `useEffect` to fetch recommendations and portfolio data
-2. User navigates to Events screen → triggers `useEffect` to fetch events data
-3. User clicks recommendation button → calls `executeTrade` API → refreshes data after success
-4. All API calls include error handling with console logging
+1. User clicks Login/Sign Up → fetches profiles from API → displays profile selection screen
+2. User selects a profile → stores in `selectedProfile` state → proceeds to integrations screen
+3. User completes integrations → analyzing screen → navigates to portfolio
+4. Portfolio screen mount → triggers `useEffect` to fetch recommendations and portfolio data
+5. Events screen mount → triggers `useEffect` to fetch events data
+6. User clicks recommendation button → calls `executeTrade` API → refreshes data after success
+7. User clicks profile button (top right) → opens modal with detailed profile information
+8. All API calls include error handling with console logging
 
 ### Event Icon Mapping
 

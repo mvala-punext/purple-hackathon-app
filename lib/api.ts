@@ -5,6 +5,8 @@ import type {
   PortfolioResponse,
   TradeRequest,
   TradeResponse,
+  ProfilesResponse,
+  UserProfile,
 } from "./api-types"
 
 const API_BASE_URL = "https://knowsyou.jens.cz"
@@ -26,19 +28,19 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return response.json()
 }
 
-// Get financial recommendations
-export async function getRecommendations(): Promise<RecommendationsResponse> {
-  return fetchAPI<RecommendationsResponse>("/recommendations")
+// Get financial recommendations for a profile
+export async function getRecommendations(profileId: number): Promise<RecommendationsResponse> {
+  return fetchAPI<RecommendationsResponse>(`/profiles/${profileId}/recommendations`)
 }
 
-// Get life events
-export async function getEvents(): Promise<EventsResponse> {
-  return fetchAPI<EventsResponse>("/events")
+// Get life events for a profile
+export async function getEvents(profileId: number): Promise<EventsResponse> {
+  return fetchAPI<EventsResponse>(`/profiles/${profileId}/events`)
 }
 
-// Get portfolio
-export async function getPortfolio(): Promise<PortfolioResponse> {
-  return fetchAPI<PortfolioResponse>("/portfolio")
+// Get portfolio for a profile
+export async function getPortfolio(profileId: number): Promise<PortfolioResponse> {
+  return fetchAPI<PortfolioResponse>(`/profiles/${profileId}/portfolio`)
 }
 
 // Execute a trade
@@ -47,4 +49,14 @@ export async function executeTrade(request: TradeRequest): Promise<TradeResponse
     method: "POST",
     body: JSON.stringify(request),
   })
+}
+
+// Get all user profiles
+export async function getProfiles(): Promise<ProfilesResponse> {
+  return fetchAPI<ProfilesResponse>("/profiles")
+}
+
+// Get user profile by ID
+export async function getProfileById(id: number): Promise<UserProfile> {
+  return fetchAPI<UserProfile>(`/profiles/${id}`)
 }

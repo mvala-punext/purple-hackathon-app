@@ -55,3 +55,43 @@ export type TradeRequest = {
 }
 
 export type TradeResponse = Trade
+
+// Profile types
+export type MoneyAmount = {
+  amount: number
+  currency: string
+}
+
+export type InvestmentProfile = {
+  investmentGoal: "retirement" | "wealth_building" | "education" | "home_purchase" | "other"
+  timeHorizon: number
+  riskTolerance: "conservative" | "moderate" | "aggressive"
+  investmentExperience: "beginner" | "intermediate" | "advanced"
+  taxResidency: string
+  annualIncome: MoneyAmount
+  liquidAssets: MoneyAmount
+  monthlyInvestmentCapacity: MoneyAmount
+  occupation: string
+  dependents: number
+  financialObligations: {
+    mortgage: boolean
+    loans: boolean
+    emergencyFund: boolean
+  }
+  investmentPreferences: {
+    esgFocused: boolean
+    sectors: string[]
+    avoidSectors: string[]
+  }
+}
+
+export type UserProfile = {
+  id: number
+  firstName: string
+  lastName: string
+  age: number
+  country: string
+  investmentProfile: InvestmentProfile
+}
+
+export type ProfilesResponse = UserProfile[]

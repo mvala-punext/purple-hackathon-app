@@ -21,12 +21,14 @@ import {
   Trophy,
   Home,
   HandCoins,
+  User,
+  X,
 } from "lucide-react"
-import { getRecommendations, getPortfolio, getEvents, executeTrade } from "@/lib/api"
-import type { Recommendation, Portfolio, Event } from "@/lib/api-types"
+import { getRecommendations, getPortfolio, getEvents, executeTrade, getProfiles, getProfileById } from "@/lib/api"
+import type { Recommendation, Portfolio, Event, UserProfile } from "@/lib/api-types"
 import { getEventIcon } from "@/lib/event-icons"
 
-type Screen = "login" | "integrations" | "analyzing" | "portfolio" | "challenges" | "events"
+type Screen = "login" | "profileSelection" | "integrations" | "analyzing" | "portfolio" | "challenges" | "events"
 
 type Integration = {
   id: string
@@ -56,25 +58,32 @@ export default function MoneyForLife() {
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
   const [currentTradeRecommendation, setCurrentTradeRecommendation] = useState<Recommendation | null>(null)
 
+  // Profile state
+  const [profiles, setProfiles] = useState<UserProfile[]>([])
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
   // Fetch data when entering portfolio screen
   useEffect(() => {
-    if (currentScreen === "portfolio") {
+    if (currentScreen === "portfolio" && selectedProfile) {
       fetchRecommendationsData()
       fetchPortfolioData()
     }
-  }, [currentScreen])
+  }, [currentScreen, selectedProfile])
 
   // Fetch events when entering events screen
   useEffect(() => {
-    if (currentScreen === "events") {
+    if (currentScreen === "events" && selectedProfile) {
       fetchEventsData()
     }
-  }, [currentScreen])
+  }, [currentScreen, selectedProfile])
 
   const fetchRecommendationsData = async () => {
+    if (!selectedProfile) return
     setIsLoadingRecommendations(true)
     try {
-      const data = await getRecommendations()
+      const data = await getRecommendations(selectedProfile.id)
       setRecommendations(data.recommendations)
     } catch (error) {
       console.error("Failed to fetch recommendations:", error)
@@ -84,9 +93,10 @@ export default function MoneyForLife() {
   }
 
   const fetchPortfolioData = async () => {
+    if (!selectedProfile) return
     setIsLoadingPortfolio(true)
     try {
-      const data = await getPortfolio()
+      const data = await getPortfolio(selectedProfile.id)
       setPortfolio(data)
     } catch (error) {
       console.error("Failed to fetch portfolio:", error)
@@ -96,9 +106,10 @@ export default function MoneyForLife() {
   }
 
   const fetchEventsData = async () => {
+    if (!selectedProfile) return
     setIsLoadingEvents(true)
     try {
-      const data = await getEvents()
+      const data = await getEvents(selectedProfile.id)
       setEvents(data.events)
     } catch (error) {
       console.error("Failed to fetch events:", error)
@@ -158,6 +169,115 @@ export default function MoneyForLife() {
     }, 3000)
   }
 
+  // Profile Modal Component
+  const ProfileModal = () => {
+    if (!showProfileModal || !selectedProfile) return null
+
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300 p-4">
+        <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-2xl">User Profile</CardTitle>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Personal Info */}
+            <div className="flex items-center gap-4 pb-6 border-b">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                <User className="h-10 w-10 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold">{selectedProfile.firstName} {selectedProfile.lastName}</h3>
+                <p className="text-muted-foreground">{selectedProfile.age} years old • {selectedProfile.country}</p>
+              </div>
+            </div>
+
+            {/* Investment Profile */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-purple-600">Investment Profile</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Investment Goal</p>
+                  <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentGoal.replace("_", " ")}</p>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Time Horizon</p>
+                  <p className="font-semibold">{selectedProfile.investmentProfile.timeHorizon} years</p>
+                </div>
+                <div className="p-4 bg-indigo-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Risk Tolerance</p>
+                  <p className="font-semibold capitalize">{selectedProfile.investmentProfile.riskTolerance}</p>
+                </div>
+                <div className="p-4 bg-violet-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Experience Level</p>
+                  <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentExperience}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Info */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-purple-600">Financial Details</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-muted-foreground">Annual Income</span>
+                  <span className="font-semibold">{selectedProfile.investmentProfile.annualIncome.amount.toLocaleString()} {selectedProfile.investmentProfile.annualIncome.currency}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-muted-foreground">Liquid Assets</span>
+                  <span className="font-semibold">{selectedProfile.investmentProfile.liquidAssets.amount.toLocaleString()} {selectedProfile.investmentProfile.liquidAssets.currency}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-muted-foreground">Monthly Investment Capacity</span>
+                  <span className="font-semibold">{selectedProfile.investmentProfile.monthlyInvestmentCapacity.amount.toLocaleString()} {selectedProfile.investmentProfile.monthlyInvestmentCapacity.currency}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-muted-foreground">Occupation</span>
+                  <span className="font-semibold capitalize">{selectedProfile.investmentProfile.occupation}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-muted-foreground">Dependents</span>
+                  <span className="font-semibold">{selectedProfile.investmentProfile.dependents}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Obligations */}
+            <div className="space-y-3">
+              <h4 className="text-lg font-semibold text-purple-600">Financial Obligations</h4>
+              <div className="flex gap-2 flex-wrap">
+                {selectedProfile.investmentProfile.financialObligations.mortgage && (
+                  <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Mortgage</span>
+                )}
+                {selectedProfile.investmentProfile.financialObligations.loans && (
+                  <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Loans</span>
+                )}
+                {selectedProfile.investmentProfile.financialObligations.emergencyFund && (
+                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Emergency Fund</span>
+                )}
+              </div>
+            </div>
+
+            {/* Investment Preferences */}
+            {selectedProfile.investmentProfile.investmentPreferences.esgFocused && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="font-semibold text-green-700">ESG Focused Investment</p>
+                <p className="text-sm text-green-600 mt-1">Prefers environmental, social, and governance focused investments</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (currentScreen === "login") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
@@ -172,12 +292,75 @@ export default function MoneyForLife() {
           <CardContent>
             <Button
               className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              onClick={() => setCurrentScreen("integrations")}
+              onClick={async () => {
+                setCurrentScreen("profileSelection")
+                setIsLoadingProfiles(true)
+                try {
+                  const profilesData = await getProfiles()
+                  setProfiles(profilesData)
+                } catch (error) {
+                  console.error("Failed to fetch profiles:", error)
+                } finally {
+                  setIsLoadingProfiles(false)
+                }
+              }}
             >
               Login / Sign Up
             </Button>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (currentScreen === "profileSelection") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+        <div className="max-w-3xl mx-auto py-8">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold mb-2">Select Your Profile</h1>
+            <p className="text-muted-foreground text-lg">Choose a profile to continue</p>
+          </div>
+
+          {isLoadingProfiles ? (
+            <div className="p-12 text-center">
+              <Loader2 className="h-12 w-12 text-purple-500 mx-auto mb-4 animate-spin" />
+              <p className="text-lg font-medium text-gray-700">Loading profiles...</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {profiles.map((profile) => (
+                <Card
+                  key={profile.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-purple-400"
+                  onClick={() => {
+                    setSelectedProfile(profile)
+                    setCurrentScreen("integrations")
+                  }}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                        <User className="h-8 w-8 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold">
+                          {profile.firstName} {profile.lastName}
+                        </h3>
+                        <p className="text-muted-foreground">
+                          {profile.age} years old • {profile.country}
+                        </p>
+                        <p className="text-sm text-purple-600 font-medium mt-1">
+                          {profile.investmentProfile.investmentGoal.replace("_", " ")} • {profile.investmentProfile.riskTolerance}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -287,8 +470,16 @@ export default function MoneyForLife() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
         <div className="max-w-4xl mx-auto p-4 py-8">
-          <div className="mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <h1 className="text-4xl font-bold">Your Portfolio</h1>
+            {selectedProfile && (
+              <button
+                onClick={() => setShowProfileModal(true)}
+                className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+              >
+                <User className="h-6 w-6 text-purple-600" />
+              </button>
+            )}
           </div>
 
           {!hasInvestments ? (
@@ -526,6 +717,8 @@ export default function MoneyForLife() {
           </div>
         )}
 
+        <ProfileModal />
+
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
           <div className="max-w-4xl mx-auto flex">
             <button
@@ -560,7 +753,17 @@ export default function MoneyForLife() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
         <div className="max-w-4xl mx-auto p-4 py-8">
           <div className="mb-6">
-            <h1 className="text-4xl font-bold mb-2">Life Events</h1>
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-4xl font-bold">Life Events</h1>
+              {selectedProfile && (
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                >
+                  <User className="h-6 w-6 text-purple-600" />
+                </button>
+              )}
+            </div>
             <p className="text-muted-foreground text-lg">
               Events from your connected accounts that help us personalize your portfolio
             </p>
@@ -620,6 +823,8 @@ export default function MoneyForLife() {
           )}
         </div>
 
+        <ProfileModal />
+
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
           <div className="max-w-4xl mx-auto flex">
             <button
@@ -653,7 +858,17 @@ export default function MoneyForLife() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
       <div className="max-w-4xl mx-auto p-4 py-8">
         <div className="mb-6">
-          <h1 className="text-4xl font-bold mb-2">This Week's Challenges</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-4xl font-bold">This Week's Challenges</h1>
+            {selectedProfile && (
+              <button
+                onClick={() => setShowProfileModal(true)}
+                className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+              >
+                <User className="h-6 w-6 text-purple-600" />
+              </button>
+            )}
+          </div>
           <p className="text-muted-foreground text-lg">Complete challenges to build healthy financial habits</p>
         </div>
 
@@ -787,6 +1002,8 @@ export default function MoneyForLife() {
           </Card>
         </div>
       </div>
+
+      <ProfileModal />
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
         <div className="max-w-4xl mx-auto flex">
