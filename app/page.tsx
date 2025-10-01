@@ -53,6 +53,7 @@ export default function MoneyForLife() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+  const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
 
   // Fetch data when entering portfolio screen
   useEffect(() => {
@@ -259,6 +260,11 @@ export default function MoneyForLife() {
     const currency = portfolio?.currency || "USD"
     const hasInvestments = portfolio && portfolio.investedInstruments.length > 0
 
+    // Sort instruments by amount (highest first)
+    const sortedInstruments = portfolio?.investedInstruments
+      ? [...portfolio.investedInstruments].sort((a, b) => b.amount - a.amount)
+      : []
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
         <div className="max-w-4xl mx-auto p-4 py-8">
@@ -287,26 +293,70 @@ export default function MoneyForLife() {
             <Card className="mb-6">
               <CardContent className="p-8">
                 <div className="flex flex-col items-center gap-6">
-                  {/* Smaller pie chart */}
-                  <div className="relative w-48 h-48">
-                    <svg viewBox="0 0 100 100" className="transform -rotate-90">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#8b5cf6"
-                        strokeWidth="20"
-                        strokeDasharray="251.2"
-                        strokeDashoffset="0"
-                      />
+                  {/* Multi-segment donut chart */}
+                  <div className="relative w-64 h-64 p-2">
+                    <svg viewBox="-5 -5 110 110" className="transform -rotate-90 overflow-visible">
+                      {sortedInstruments.map((holding, index) => {
+                        const percentage = totalAmount > 0 ? (holding.amount / totalAmount) * 100 : 0
+                        const colors = ["#8b5cf6", "#3b82f6", "#a855f7", "#6366f1", "#ec4899"]
+                        const isHovered = hoveredSegment === index
+
+                        // Calculate stroke-dasharray for each segment
+                        const circumference = 2 * Math.PI * 40 // radius = 40
+                        const segmentLength = (percentage / 100) * circumference
+
+                        // Calculate offset (sum of all previous segments)
+                        const offset = sortedInstruments
+                          .slice(0, index)
+                          .reduce((sum, h) => {
+                            const pct = totalAmount > 0 ? (h.amount / totalAmount) * 100 : 0
+                            return sum + (pct / 100) * circumference
+                          }, 0)
+
+                        return (
+                          <circle
+                            key={index}
+                            cx="50"
+                            cy="50"
+                            r={isHovered ? "41" : "40"}
+                            fill="none"
+                            stroke={colors[index % colors.length]}
+                            strokeWidth="20"
+                            strokeDasharray={`${segmentLength} ${circumference - segmentLength}`}
+                            strokeDashoffset={-offset}
+                            style={{
+                              transition: "all 0.3s ease",
+                              cursor: "pointer",
+                              opacity: hoveredSegment === null ? 1 : isHovered ? 1 : 0.4,
+                            }}
+                            onMouseEnter={() => setHoveredSegment(index)}
+                            onMouseLeave={() => setHoveredSegment(null)}
+                          />
+                        )
+                      })}
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="text-center">
-                        <p className="text-2xl font-bold">
-                          {currency === "USD" ? "$" : ""}{totalAmount.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Total</p>
+                        {hoveredSegment !== null ? (
+                          <>
+                            <p className="text-lg font-semibold px-4 leading-tight">
+                              {sortedInstruments[hoveredSegment].instrument}
+                            </p>
+                            <p className="text-2xl font-bold mt-1">
+                              {currency === "USD" ? "$" : ""}{sortedInstruments[hoveredSegment].amount.toFixed(0)}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {((sortedInstruments[hoveredSegment].amount / totalAmount) * 100).toFixed(1)}%
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-3xl font-bold">
+                              {currency === "USD" ? "$" : ""}{totalAmount.toFixed(0)}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">Total Value</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -315,7 +365,7 @@ export default function MoneyForLife() {
                   <div className="w-full space-y-3">
                     <h3 className="text-lg font-semibold mb-4">Holdings</h3>
                     <div className="space-y-3">
-                      {portfolio.investedInstruments.map((holding, index) => {
+                      {sortedInstruments.map((holding, index) => {
                         const percentage = totalAmount > 0 ? (holding.amount / totalAmount) * 100 : 0
                         const colors = [
                           "bg-violet-500",
