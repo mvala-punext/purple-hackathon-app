@@ -7,7 +7,7 @@ import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "AI Wealth Manager",
+  title: "Knows You App",
   description: "No effort. No stress. No overthinking.",
   generator: "v0.app",
 }

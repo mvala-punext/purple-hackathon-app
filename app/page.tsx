@@ -20,6 +20,7 @@ import {
   Leaf,
   Trophy,
   Home,
+  HandCoins,
 } from "lucide-react"
 import { getRecommendations, getPortfolio, getEvents, executeTrade } from "@/lib/api"
 import type { Recommendation, Portfolio, Event } from "@/lib/api-types"
@@ -163,9 +164,9 @@ export default function MoneyForLife() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center space-y-2">
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mb-4">
-              <TrendingUp className="h-8 w-8 text-white" />
+              <HandCoins className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="text-3xl font-bold">Welcome to Knows You</CardTitle>
+            <CardTitle className="text-3xl font-bold">Welcome to Knows You App</CardTitle>
             <CardDescription className="text-lg italic">"No effort. No stress. No overthinking."</CardDescription>
           </CardHeader>
           <CardContent>
@@ -460,23 +461,6 @@ export default function MoneyForLife() {
                   ))}
                 </>
               )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-purple-200 bg-purple-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 bg-purple-500 rounded-lg">
-                  <Target className="h-5 w-5 text-white" />
-                </div>
-                Challenge
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg">
-                Skip <span className="font-bold text-purple-600">2 takeout orders</span> this week and invest the{" "}
-                <span className="font-bold text-purple-600">$30</span> saved.
-              </p>
             </CardContent>
           </Card>
         </div>
