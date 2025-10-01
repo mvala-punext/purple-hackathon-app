@@ -4,86 +4,144 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-"Money for Life" (purple-hackathon-app) - An AI-powered wealth management application that integrates with users' life data (banks, health tracking, calendar, social media) to provide personalized investment recommendations and financial challenges.
+This is "Knows You" (branded as "AI Wealth Manager"), an AI-powered personal finance app built as a hackathon prototype. The app connects to users' life data (banks via PSD2, health data from Garmin, Google Calendar/Email, Facebook/Instagram) to provide personalized investment recommendations, track life events, and gamify financial goals through challenges.
 
-**Tech Stack:**
-- Next.js 14 (App Router)
-- React 18 with TypeScript
-- Tailwind CSS v4 with custom theme system
-- shadcn/ui component library (New York style)
-- pnpm as package manager
-- Vercel Analytics
+The application is a single-page React application with client-side state management that simulates the onboarding flow, portfolio management, life events tracking, and challenges system.
 
 ## Development Commands
 
 ```bash
-# Install dependencies
+# Install dependencies (uses pnpm)
 pnpm install
 
-# Development server (http://localhost:3000)
+# Start development server
 pnpm dev
 
-# Production build
+# Build for production
 pnpm build
 
 # Start production server
 pnpm start
 
-# Lint code
+# Run linter
 pnpm lint
 ```
 
-## Architecture & Key Patterns
+## Architecture
 
-### App Structure
-- Single-page application using client-side routing via state management
-- Main entry: `app/page.tsx` - contains entire application logic as "MoneyForLife" component
-- Multi-screen flow: login → integrations → analyzing → portfolio → challenges → events
-- State management handled via React useState (no external state library)
+### Tech Stack
+- **Framework**: Next.js 14.2.16 (App Router)
+- **Language**: TypeScript 5 with strict mode enabled
+- **Styling**: Tailwind CSS 4.1.9 with PostCSS
+- **UI Components**: shadcn/ui (New York style) with Radix UI primitives
+- **Icons**: Lucide React
+- **Fonts**: Geist Sans & Geist Mono
+- **Analytics**: Vercel Analytics
 
-### UI Component System
-- **Base components**: `components/ui/*` - shadcn/ui primitives (buttons, cards, dialogs, etc.)
-- **Theme**: Uses Geist fonts (sans & mono) from Vercel
-- **Styling**: Tailwind CSS v4 with custom CSS variables for theming
-  - Color system uses OKLCH color space
-  - CSS variables defined in `app/globals.css`
-  - Custom dark mode support via `.dark` class variant
+### Application Structure
 
-### Path Aliases (tsconfig.json)
-- `@/*` - Maps to project root
-- `@/components` - UI components
-- `@/lib` - Utility functions
-- `@/hooks` - React hooks
+The app uses a state-machine pattern with a single main component (`MoneyForLife`) that manages screen transitions:
 
-### Component Architecture
-The main app (`app/page.tsx`) manages:
-1. Screen navigation (login, integrations, analyzing, portfolio, challenges, events)
-2. Integration connections (Banks/PSD2, Garmin, Google, Facebook/Instagram)
-3. Portfolio state (empty vs. populated)
-4. Trade execution simulation (modal, loading, success states)
-5. Life events detection from connected accounts
-6. Financial challenges with progress tracking
+1. **Login Screen**: Welcome screen with branding
+2. **Integrations Screen**: Connect external accounts (banks, Garmin, Google, Facebook)
+3. **Analyzing Screen**: Loading state while "analyzing" user data
+4. **Portfolio Screen**: Main dashboard showing portfolio value, AI recommendations, and current challenges
+5. **Challenges Screen**: Gamified financial goals with progress tracking
+6. **Events Screen**: Timeline of detected life events from connected accounts
 
-### Key Features
-- **Life Event Detection**: Analyzes connected accounts to identify major life events (marriage, house purchase, job changes, etc.) that influence investment recommendations
-- **AI Recommendations**: Personalized investment suggestions based on idle cash analysis
-- **Challenge System**: Gamified savings goals with progress tracking
-- **Bottom Navigation**: Fixed navigation bar for primary screens (Portfolio, Challenges, Events)
+Key state in [app/page.tsx](app/page.tsx):
+- `currentScreen`: Controls which view is displayed
+- `integrations`: Tracks connection status of external services
+- `recommendations`: Array of AI-generated recommendations from API
+- `portfolio`: User's portfolio data including total amount and invested instruments
+- `events`: Array of life events detected from connected accounts
+- `isProcessingTrade` / `tradeComplete`: Trade execution states
 
-## Build Configuration
+### UI Components
 
-`next.config.mjs` disables:
-- ESLint during builds (`ignoreDuringBuilds: true`)
-- TypeScript error checking during builds (`ignoreBuildErrors: true`)
-- Image optimization (`unoptimized: true`)
+All UI components are in [components/ui/](components/ui/) and follow shadcn/ui conventions:
+- Radix UI primitives wrapped with custom styling
+- Variants managed via `class-variance-authority`
+- Utility functions in [lib/utils.ts](lib/utils.ts) using `clsx` and `tailwind-merge`
 
-This suggests rapid prototyping/hackathon development approach.
+### Styling
 
-## UI Component Library
+- Uses Tailwind CSS v4 with inline `@theme` configuration
+- Custom color palette defined with OKLCH color space
+- CSS variables for theming (supports dark mode via `.dark` class)
+- Animations via `tailwindcss-animate` and `tw-animate-css`
+- Import path alias: `@/*` maps to project root
 
-Uses shadcn/ui configured in `components.json`:
-- Style: "new-york"
-- RSC enabled
-- Base color: neutral
-- Icon library: lucide-react
-- Component path: `@/components/ui`
+### Configuration Notes
+
+- **next.config.mjs**: ESLint and TypeScript errors ignored during builds, images unoptimized (for static export compatibility)
+- **tsconfig.json**: Uses `@/*` path alias, strict mode enabled, ES6 target
+- **components.json**: shadcn/ui configuration with New York style, RSC enabled
+
+## Development Guidelines
+
+### Adding New Screens
+
+To add a new screen to the app:
+1. Add screen type to the `Screen` type union in [app/page.tsx](app/page.tsx:26)
+2. Add conditional rendering block in the main component
+3. Add navigation button in the bottom tab bar (if applicable)
+
+### Adding UI Components
+
+Use shadcn/ui CLI to add new components:
+```bash
+npx shadcn@latest add <component-name>
+```
+
+Components will be added to [components/ui/](components/ui/) with proper configuration from [components.json](components.json).
+
+## API Integration
+
+### Backend API
+
+The app integrates with the Knows You API at `https://knowsyou.jens.cz` (public prototype, no authentication required).
+
+API client and types are located in:
+- [lib/api.ts](lib/api.ts) - API client functions
+- [lib/api-types.ts](lib/api-types.ts) - TypeScript types matching OpenAPI spec
+
+### Available Endpoints
+
+**GET /recommendations**
+- Returns array of AI-generated investment recommendations
+- Displayed in Portfolio screen
+- Shows loading animation when empty or loading
+
+**GET /portfolio**
+- Returns user's portfolio including total amount and invested instruments
+- Fetched on Portfolio screen mount
+- Displays holdings with percentages and color-coded visualization
+
+**GET /events**
+- Returns life events detected from connected accounts
+- Fetched on Events screen mount
+- Events include types: relationship, purchase, sustainability, fitness, buy_instrument, sell_instrument
+- Icons and colors determined by [lib/event-icons.tsx](lib/event-icons.tsx)
+
+**POST /trades**
+- Executes a trade based on recommendation ID
+- Called from `handleBuyRecommendation` function
+- Refreshes portfolio and recommendations after successful trade
+
+### Data Flow
+
+1. User navigates to Portfolio screen → triggers `useEffect` to fetch recommendations and portfolio data
+2. User navigates to Events screen → triggers `useEffect` to fetch events data
+3. User clicks recommendation button → calls `executeTrade` API → refreshes data after success
+4. All API calls include error handling with console logging
+
+### Event Icon Mapping
+
+The `getEventIcon` function in [lib/event-icons.tsx](lib/event-icons.tsx) maps event types to appropriate icons and colors:
+- `relationship` → Heart (pink)
+- `purchase` → Car (blue)
+- `sustainability` → Leaf (green)
+- `fitness` → Trophy (orange)
+- `buy_instrument` → TrendingUp (purple)
+- `sell_instrument` → TrendingDown (red)

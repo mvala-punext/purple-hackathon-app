@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -22,6 +22,9 @@ import {
   Trophy,
   Home,
 } from "lucide-react"
+import { getRecommendations, getPortfolio, getEvents, executeTrade } from "@/lib/api"
+import type { Recommendation, Portfolio, Event } from "@/lib/api-types"
+import { getEventIcon } from "@/lib/event-icons"
 
 type Screen = "login" | "integrations" | "analyzing" | "portfolio" | "challenges" | "events"
 
@@ -34,7 +37,6 @@ type Integration = {
 
 export default function MoneyForLife() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("login")
-  const [recommendationPurchased, setRecommendationPurchased] = useState(false)
   const [isProcessingTrade, setIsProcessingTrade] = useState(false)
   const [tradeComplete, setTradeComplete] = useState(false)
   const [integrations, setIntegrations] = useState<Integration[]>([
@@ -44,22 +46,87 @@ export default function MoneyForLife() {
     { id: "facebook", name: "Facebook / Instagram", icon: <Share2 className="h-5 w-5" />, connected: false },
   ])
 
+  // API data state
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
+  const [events, setEvents] = useState<Event[]>([])
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
+  const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false)
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+
+  // Fetch data when entering portfolio screen
+  useEffect(() => {
+    if (currentScreen === "portfolio") {
+      fetchRecommendationsData()
+      fetchPortfolioData()
+    }
+  }, [currentScreen])
+
+  // Fetch events when entering events screen
+  useEffect(() => {
+    if (currentScreen === "events") {
+      fetchEventsData()
+    }
+  }, [currentScreen])
+
+  const fetchRecommendationsData = async () => {
+    setIsLoadingRecommendations(true)
+    try {
+      const data = await getRecommendations()
+      setRecommendations(data.recommendations)
+    } catch (error) {
+      console.error("Failed to fetch recommendations:", error)
+    } finally {
+      setIsLoadingRecommendations(false)
+    }
+  }
+
+  const fetchPortfolioData = async () => {
+    setIsLoadingPortfolio(true)
+    try {
+      const data = await getPortfolio()
+      setPortfolio(data)
+    } catch (error) {
+      console.error("Failed to fetch portfolio:", error)
+    } finally {
+      setIsLoadingPortfolio(false)
+    }
+  }
+
+  const fetchEventsData = async () => {
+    setIsLoadingEvents(true)
+    try {
+      const data = await getEvents()
+      setEvents(data.events)
+    } catch (error) {
+      console.error("Failed to fetch events:", error)
+    } finally {
+      setIsLoadingEvents(false)
+    }
+  }
+
   const handleConnect = (id: string) => {
     setIntegrations((prev) =>
       prev.map((integration) => (integration.id === id ? { ...integration, connected: true } : integration)),
     )
   }
 
-  const handleBuyRecommendation = () => {
+  const handleBuyRecommendation = async (recommendationId: string) => {
     setIsProcessingTrade(true)
-    setTimeout(() => {
+    try {
+      await executeTrade({ recommendationId })
       setTradeComplete(true)
-      setTimeout(() => {
-        setRecommendationPurchased(true)
+      setTimeout(async () => {
         setIsProcessingTrade(false)
         setTradeComplete(false)
+        // Refresh data after trade
+        await fetchPortfolioData()
+        await fetchRecommendationsData()
       }, 2000)
-    }, 2000)
+    } catch (error) {
+      console.error("Failed to execute trade:", error)
+      setIsProcessingTrade(false)
+    }
   }
 
   const anyConnected = integrations.some((i) => i.connected)
@@ -188,15 +255,21 @@ export default function MoneyForLife() {
   }
 
   if (currentScreen === "portfolio") {
+    const totalAmount = portfolio?.totalAmount || 0
+    const currency = portfolio?.currency || "USD"
+    const hasInvestments = portfolio && portfolio.investedInstruments.length > 0
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
         <div className="max-w-4xl mx-auto p-4 py-8">
           <div className="mb-2">
             <h1 className="text-4xl font-bold">Your Portfolio</h1>
-            <p className="text-3xl font-semibold text-purple-600 mt-2">${recommendationPurchased ? "500" : "0"}</p>
+            <p className="text-3xl font-semibold text-purple-600 mt-2">
+              {currency === "USD" ? "$" : ""}{totalAmount.toFixed(2)}
+            </p>
           </div>
 
-          {!recommendationPurchased ? (
+          {!hasInvestments ? (
             <Card className="mb-6 border-dashed border-2 border-gray-300">
               <CardContent className="p-12 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
@@ -230,7 +303,9 @@ export default function MoneyForLife() {
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
-                        <p className="text-2xl font-bold">$500</p>
+                        <p className="text-2xl font-bold">
+                          {currency === "USD" ? "$" : ""}{totalAmount.toFixed(2)}
+                        </p>
                         <p className="text-xs text-muted-foreground">Total</p>
                       </div>
                     </div>
@@ -240,19 +315,42 @@ export default function MoneyForLife() {
                   <div className="w-full space-y-3">
                     <h3 className="text-lg font-semibold mb-4">Holdings</h3>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-100">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full bg-violet-500" />
-                          <div>
-                            <p className="font-semibold">S&P 500 ETF</p>
-                            <p className="text-sm text-muted-foreground">VOO</p>
+                      {portfolio.investedInstruments.map((holding, index) => {
+                        const percentage = totalAmount > 0 ? (holding.amount / totalAmount) * 100 : 0
+                        const colors = [
+                          "bg-violet-500",
+                          "bg-blue-500",
+                          "bg-purple-500",
+                          "bg-indigo-500",
+                          "bg-pink-500",
+                        ]
+                        const bgColors = [
+                          "bg-purple-50 border-purple-100",
+                          "bg-blue-50 border-blue-100",
+                          "bg-violet-50 border-violet-100",
+                          "bg-indigo-50 border-indigo-100",
+                          "bg-pink-50 border-pink-100",
+                        ]
+                        return (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between p-4 rounded-lg border ${bgColors[index % bgColors.length]}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`} />
+                              <div>
+                                <p className="font-semibold">{holding.instrument}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold">
+                                {holding.currency === "USD" ? "$" : ""}{holding.amount.toFixed(2)}
+                              </p>
+                              <p className="text-sm text-muted-foreground">{percentage.toFixed(1)}%</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">$500.00</p>
-                          <p className="text-sm text-muted-foreground">100%</p>
-                        </div>
-                      </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -266,40 +364,34 @@ export default function MoneyForLife() {
                 <div className="p-2 bg-blue-500 rounded-lg">
                   <TrendingUp className="h-5 w-5 text-white" />
                 </div>
-                AI Recommendation
+                AI Recommendations
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!recommendationPurchased ? (
-                <>
-                  <p className="text-lg leading-relaxed">
-                    Based on your account activity, you've had <span className="font-bold text-blue-600">$3,200</span>{" "}
-                    sitting idle in your checking account for the past 3 months. I suggest investing{" "}
-                    <span className="font-bold text-blue-600">$500 in S&P 500 ETF (VOO)</span> to put that money to work
-                    and earn an average 10% annual return instead of 0.01% in your checking account.
+              {isLoadingRecommendations || recommendations.length === 0 ? (
+                <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-dashed border-purple-200 text-center">
+                  <Loader2 className="h-8 w-8 text-purple-500 mx-auto mb-3 animate-spin" />
+                  <p className="text-lg font-medium text-gray-700 mb-2">Analyzing opportunities...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Our AI is reviewing your portfolio and life events to find personalized investment opportunities.
                   </p>
-                  <Button
-                    onClick={handleBuyRecommendation}
-                    className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  >
-                    Buy $500 of VOO
-                  </Button>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center gap-2 p-4 bg-green-100 text-green-700 rounded-lg">
-                    <Check className="h-5 w-5" />
-                    <span className="font-medium">Recommendation fulfilled!</span>
-                  </div>
-                  <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-dashed border-purple-200 text-center">
-                    <Loader2 className="h-8 w-8 text-purple-500 mx-auto mb-3 animate-spin" />
-                    <p className="text-lg font-medium text-gray-700 mb-2">Analyzing new opportunities...</p>
-                    <p className="text-sm text-muted-foreground">
-                      Our AI is reviewing your updated portfolio and life events to find your next personalized
-                      investment opportunity.
-                    </p>
-                  </div>
                 </div>
+              ) : (
+                <>
+                  {recommendations.map((recommendation) => (
+                    <div key={recommendation.id} className="space-y-4 pb-4 border-b last:border-b-0 last:pb-0">
+                      <p className="text-lg leading-relaxed">{recommendation.message}</p>
+                      <Button
+                        onClick={() => handleBuyRecommendation(recommendation.id)}
+                        className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      >
+                        {recommendation.type === "buy" ? "Buy" : "Sell"}{" "}
+                        {recommendation.investmentCurrency === "USD" ? "$" : ""}
+                        {recommendation.investmentAmount} of {recommendation.investmentInstrument}
+                      </Button>
+                    </div>
+                  ))}
+                </>
               )}
             </CardContent>
           </Card>
@@ -396,105 +488,58 @@ export default function MoneyForLife() {
             </p>
           </div>
 
-          <div className="space-y-4">
-            {/* Event 1 - Got Married */}
-            <Card className="border-l-4 border-l-pink-500">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-pink-100 rounded-lg">
-                    <Heart className="h-6 w-6 text-pink-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">Got Married</h3>
-                    <p className="text-muted-foreground mb-2">Detected from Facebook relationship status change</p>
-                    <p className="text-sm text-gray-600">March 15, 2024</p>
-                  </div>
+          {isLoadingEvents ? (
+            <div className="p-12 text-center">
+              <Loader2 className="h-12 w-12 text-purple-500 mx-auto mb-4 animate-spin" />
+              <p className="text-lg font-medium text-gray-700 mb-2">Loading your life events...</p>
+              <p className="text-sm text-muted-foreground">
+                Fetching events from your connected accounts
+              </p>
+            </div>
+          ) : events.length === 0 ? (
+            <Card className="border-dashed border-2 border-gray-300">
+              <CardContent className="p-12 text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
+                  <Calendar className="h-8 w-8 text-purple-500" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-gray-700">No events found</h3>
+                  <p className="text-muted-foreground">
+                    Connect more accounts to see life events that help us personalize your portfolio.
+                  </p>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Event 2 - Bought a Car */}
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <Car className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">Bought a Car</h3>
-                    <p className="text-muted-foreground mb-2">Large transaction detected from bank account</p>
-                    <p className="text-sm text-gray-600">January 8, 2024</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Event 3 - Posted Ecology Status */}
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <Leaf className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">Posted About Sustainability</h3>
-                    <p className="text-muted-foreground mb-2">
-                      Multiple posts about climate change and eco-friendly living on Facebook
-                    </p>
-                    <p className="text-sm text-gray-600">December 2023 - Present</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Event 4 - Ran a Marathon */}
-            <Card className="border-l-4 border-l-orange-500">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-orange-100 rounded-lg">
-                    <Trophy className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">Completed a Marathon</h3>
-                    <p className="text-muted-foreground mb-2">26.2 miles tracked on Garmin</p>
-                    <p className="text-sm text-gray-600">November 12, 2023</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Event 5 - Bought a House */}
-            <Card className="border-l-4 border-l-purple-500">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-purple-100 rounded-lg">
-                    <Home className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">Purchased a Home</h3>
-                    <p className="text-muted-foreground mb-2">Mortgage payment detected from bank account</p>
-                    <p className="text-sm text-gray-600">September 1, 2023</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Event 6 - Started New Job */}
-            <Card className="border-l-4 border-l-indigo-500">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-indigo-100 rounded-lg">
-                    <Building2 className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">Started New Job</h3>
-                    <p className="text-muted-foreground mb-2">Salary increase detected from recurring deposits</p>
-                    <p className="text-sm text-gray-600">July 1, 2023</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              {events.map((event) => {
+                const iconConfig = getEventIcon(event.type)
+                const formattedDate = new Date(event.date).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })
+                return (
+                  <Card key={event.id} className={`border-l-4 ${iconConfig.borderColor}`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 ${iconConfig.bgColor} rounded-lg`}>{iconConfig.icon}</div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold mb-1">{event.title}</h3>
+                          <p className="text-muted-foreground mb-2">{event.description}</p>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <span>{formattedDate}</span>
+                            <span>•</span>
+                            <span>{event.source}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
