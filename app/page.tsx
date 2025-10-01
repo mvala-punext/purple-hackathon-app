@@ -17,12 +17,12 @@ import {
   Wallet,
   Heart,
   Car,
-  Leaf,
   Trophy,
   Home,
   HandCoins,
   User,
   X,
+  Flame,
 } from "lucide-react"
 import { getRecommendations, getPortfolio, getEvents, executeTrade, getProfiles, getProfileById } from "@/lib/api"
 import type { Recommendation, Portfolio, Event, UserProfile } from "@/lib/api-types"
@@ -674,8 +674,10 @@ export default function MoneyForLife() {
                       <p className="text-muted-foreground text-base">
                         We're executing your{" "}
                         <span className="font-semibold text-purple-600">
-                          {currentTradeRecommendation.investmentCurrency === "USD" ? "$" : ""}
+                          {currentTradeRecommendation.investmentCurrency === "USD" && "$"}
+                          {currentTradeRecommendation.investmentCurrency === "EUR" && "€"}
                           {currentTradeRecommendation.investmentAmount}
+                          {!["USD", "EUR"].includes(currentTradeRecommendation.investmentCurrency) && ` ${currentTradeRecommendation.investmentCurrency}`}
                         </span>{" "}
                         {currentTradeRecommendation.type} of{" "}
                         <span className="font-semibold text-purple-600">
@@ -700,8 +702,10 @@ export default function MoneyForLife() {
                       <p className="text-muted-foreground text-base">
                         Successfully {currentTradeRecommendation.type === "buy" ? "purchased" : "sold"}{" "}
                         <span className="font-semibold text-green-700">
-                          {currentTradeRecommendation.investmentCurrency === "USD" ? "$" : ""}
+                          {currentTradeRecommendation.investmentCurrency === "USD" && "$"}
+                          {currentTradeRecommendation.investmentCurrency === "EUR" && "€"}
                           {currentTradeRecommendation.investmentAmount}
+                          {!["USD", "EUR"].includes(currentTradeRecommendation.investmentCurrency) && ` ${currentTradeRecommendation.investmentCurrency}`}
                         </span>{" "}
                         of{" "}
                         <span className="font-semibold text-green-700">
@@ -915,7 +919,7 @@ export default function MoneyForLife() {
                 <div className="flex-1 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-1">Invest $100 this month</h3>
+                      <h3 className="text-xl font-semibold mb-1">Invest $1000 this month</h3>
                       <p className="text-muted-foreground">You're making great progress!</p>
                     </div>
                     <div className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1.5 rounded-full text-sm font-bold">
@@ -925,7 +929,7 @@ export default function MoneyForLife() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-purple-700">$40 / $100</span>
+                      <span className="font-medium text-purple-700">$400 / $1000</span>
                       <span className="font-semibold text-purple-600">40% complete</span>
                     </div>
                     <div className="h-3 bg-purple-100 rounded-full overflow-hidden">
@@ -938,30 +942,30 @@ export default function MoneyForLife() {
           </Card>
 
           {/* Challenge 2 */}
-          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white">
+          <Card className="border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-white">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-blue-500 rounded-lg">
-                  <Leaf className="h-6 w-6 text-white" />
+                <div className="p-3 bg-orange-500 rounded-lg">
+                  <Flame className="h-6 w-6 text-white" />
                 </div>
                 <div className="flex-1 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-1">Buy an ESG ETF</h3>
-                      <p className="text-muted-foreground">Invest in sustainable companies</p>
+                      <h3 className="text-xl font-semibold mb-1">30-Day Investment Streak</h3>
+                      <p className="text-muted-foreground">Invest once a day for a month</p>
                     </div>
-                    <div className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-bold">
+                    <div className="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold">
                       <Trophy className="h-4 w-4" />
                       <span>150 pts</span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-blue-700">Not started</span>
-                      <span className="font-semibold text-blue-600">0% complete</span>
+                      <span className="font-medium text-orange-700">12 day streak 🔥</span>
+                      <span className="font-semibold text-orange-600">40% complete</span>
                     </div>
-                    <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style={{ width: "0%" }} />
+                    <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full" style={{ width: "40%" }} />
                     </div>
                   </div>
                 </div>
