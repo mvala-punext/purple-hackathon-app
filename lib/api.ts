@@ -60,3 +60,10 @@ export async function getProfiles(): Promise<ProfilesResponse> {
 export async function getProfileById(id: number): Promise<UserProfile> {
   return fetchAPI<UserProfile>(`/profiles/${id}`)
 }
+
+// Reject a recommendation
+export async function rejectTrade(recommendationId: string): Promise<{ success: boolean; recommendationId: string; message: string }> {
+  return fetchAPI<{ success: boolean; recommendationId: string; message: string }>(`/trades/${recommendationId}`, {
+    method: "DELETE",
+  })
+}

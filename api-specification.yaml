@@ -152,7 +152,7 @@ paths:
   /trades:
     post:
       summary: Execute a trade from a recommendation
-      description: Creates a trade based on a given recommendation ID.
+      description: Creates a trade based on a given recommendation ID. Sets recommendation status to ACCEPTED.
       operationId: createTrade
       requestBody:
         required: true
@@ -176,6 +176,43 @@ paths:
                 $ref: '#/components/schemas/Trade'
         '400':
           description: Invalid recommendation ID
+        '404':
+          description: Recommendation not found
+        '500':
+          description: Internal server error
+
+  /trades/{recommendationId}:
+    delete:
+      summary: Reject a recommendation
+      description: Rejects a recommendation by setting its status to REJECTED.
+      operationId: rejectTrade
+      parameters:
+        - name: recommendationId
+          in: path
+          required: true
+          description: ID of the recommendation to reject
+          schema:
+            type: string
+            example: "rec_12345"
+      responses:
+        '200':
+          description: Recommendation successfully rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  recommendationId:
+                    type: string
+                    example: "rec_12345"
+                  message:
+                    type: string
+                    example: "Recommendation rejected successfully"
+        '400':
+          description: Invalid recommendation ID or recommendation already processed
         '404':
           description: Recommendation not found
         '500':

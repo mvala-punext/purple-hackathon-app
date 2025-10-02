@@ -24,7 +24,7 @@ import {
   X,
   Flame,
 } from "lucide-react"
-import { getRecommendations, getPortfolio, getEvents, executeTrade, getProfiles, getProfileById } from "@/lib/api"
+import { getRecommendations, getPortfolio, getEvents, executeTrade, getProfiles, getProfileById, rejectTrade } from "@/lib/api"
 import type { Recommendation, Portfolio, Event, UserProfile } from "@/lib/api-types"
 import { getEventIcon } from "@/lib/event-icons"
 
@@ -62,6 +62,7 @@ export default function MoneyForLife() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
   const [currentTradeRecommendation, setCurrentTradeRecommendation] = useState<Recommendation | null>(null)
+  const [deletingRecommendationId, setDeletingRecommendationId] = useState<string | null>(null)
 
   // Profile state
   const [profiles, setProfiles] = useState<UserProfile[]>([])
@@ -162,6 +163,24 @@ export default function MoneyForLife() {
       setIsProcessingTrade(false)
       setTradeComplete(false)
       setCurrentTradeRecommendation(null)
+    }
+  }
+
+  const handleRejectRecommendation = async (recommendationId: string) => {
+    // Start the fade-out animation
+    setDeletingRecommendationId(recommendationId)
+
+    try {
+      await rejectTrade(recommendationId)
+
+      // Wait for animation to complete before removing from list
+      setTimeout(() => {
+        setRecommendations(prev => prev.filter(r => r.id !== recommendationId))
+        setDeletingRecommendationId(null)
+      }, 300) // Match animation duration
+    } catch (error) {
+      console.error("Failed to reject recommendation:", error)
+      setDeletingRecommendationId(null)
     }
   }
 
@@ -475,16 +494,21 @@ export default function MoneyForLife() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pb-20">
         <div className="max-w-4xl mx-auto p-4 py-8">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-4xl font-bold">Your Portfolio</h1>
-            {selectedProfile && (
-              <button
-                onClick={() => setShowProfileModal(true)}
-                className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
-              >
-                <User className="h-6 w-6 text-purple-600" />
-              </button>
-            )}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-4xl font-bold">Your Portfolio</h1>
+              {selectedProfile && (
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                >
+                  <User className="h-6 w-6 text-purple-600" />
+                </button>
+              )}
+            </div>
+            <p className="text-muted-foreground text-lg">
+              Overview of your current investments and tailored recommendations
+            </p>
           </div>
 
           {!hasInvestments ? (
@@ -639,22 +663,39 @@ export default function MoneyForLife() {
                 </div>
               ) : (
                 <>
-                  {recommendations.map((recommendation) => (
-                    <div key={recommendation.id} className="space-y-4 pb-4 border-b last:border-b-0 last:pb-0">
-                      <p className="text-lg leading-relaxed">{recommendation.message}</p>
-                      <Button
-                        onClick={() => handleBuyRecommendation(recommendation.id)}
-                        className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  {recommendations.map((recommendation) => {
+                    const isDeleting = deletingRecommendationId === recommendation.id
+                    return (
+                      <div
+                        key={recommendation.id}
+                        className={`space-y-4 pb-4 border-b last:border-b-0 last:pb-0 relative transition-all duration-300 ${
+                          isDeleting ? 'opacity-0 scale-95 -translate-x-4' : 'opacity-100 scale-100 translate-x-0'
+                        }`}
                       >
-                        {recommendation.type === "buy" ? "Buy" : "Sell"}{" "}
-                        {recommendation.investmentCurrency === "USD" && "$"}
-                        {recommendation.investmentCurrency === "EUR" && "€"}
-                        {formatAmount(recommendation.investmentAmount)}
-                        {!["USD", "EUR"].includes(recommendation.investmentCurrency) && ` ${recommendation.investmentCurrency}`}
-                        {" "}of {recommendation.investmentInstrument}
-                      </Button>
-                    </div>
-                  ))}
+                        <button
+                          onClick={() => handleRejectRecommendation(recommendation.id)}
+                          className="absolute top-0 right-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          aria-label="Dismiss recommendation"
+                          disabled={isDeleting}
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                        <p className="text-lg leading-relaxed pr-10">{recommendation.message}</p>
+                        <Button
+                          onClick={() => handleBuyRecommendation(recommendation.id)}
+                          className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                          disabled={isDeleting}
+                        >
+                          {recommendation.type === "buy" ? "Buy" : "Sell"}{" "}
+                          {recommendation.investmentCurrency === "USD" && "$"}
+                          {recommendation.investmentCurrency === "EUR" && "€"}
+                          {formatAmount(recommendation.investmentAmount)}
+                          {!["USD", "EUR"].includes(recommendation.investmentCurrency) && ` ${recommendation.investmentCurrency}`}
+                          {" "}of {recommendation.investmentInstrument}
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </>
               )}
             </CardContent>
