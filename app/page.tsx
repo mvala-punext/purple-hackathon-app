@@ -84,6 +84,17 @@ export default function MoneyForLife() {
     }
   }, [currentScreen, selectedProfile])
 
+  // Poll recommendations every 5 seconds
+  useEffect(() => {
+    if (currentScreen === "portfolio" && selectedProfile) {
+      const interval = setInterval(() => {
+        fetchRecommendationsData()
+      }, 5 * 1000) // 5 seconds in milliseconds
+
+      return () => clearInterval(interval)
+    }
+  }, [currentScreen, selectedProfile])
+
   // Fetch events when entering events screen
   useEffect(() => {
     if (currentScreen === "events" && selectedProfile) {
@@ -750,14 +761,14 @@ export default function MoneyForLife() {
                       <textarea
                         value={customPromptInput}
                         onChange={(e) => setCustomPromptInput(e.target.value)}
-                        maxLength={20}
+                        maxLength={50}
                         rows={2}
-                        placeholder="e.g., ESG-focused"
+                        placeholder="e.g., I prefer ESG-focused investments"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                         disabled={isUpdatingPreferences}
                       />
                       <div className="flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">{customPromptInput.length}/20</span>
+                        <span className="text-xs text-muted-foreground">{customPromptInput.length}/50</span>
                         <Button
                           onClick={handleUpdatePreferences}
                           disabled={isUpdatingPreferences || !customPromptInput.trim()}
@@ -1039,14 +1050,14 @@ export default function MoneyForLife() {
                       <textarea
                         value={customPromptInput}
                         onChange={(e) => setCustomPromptInput(e.target.value)}
-                        maxLength={20}
+                        maxLength={50}
                         rows={2}
-                        placeholder="e.g., ESG-focused"
+                        placeholder="e.g., I prefer ESG-focused investments"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                         disabled={isUpdatingPreferences}
                       />
                       <div className="flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">{customPromptInput.length}/20</span>
+                        <span className="text-xs text-muted-foreground">{customPromptInput.length}/50</span>
                         <Button
                           onClick={handleUpdatePreferences}
                           disabled={isUpdatingPreferences || !customPromptInput.trim()}
