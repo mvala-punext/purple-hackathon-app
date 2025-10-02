@@ -95,3 +95,13 @@ export type UserProfile = {
 }
 
 export type ProfilesResponse = UserProfile[]
+
+// Preferences types
+export type ProfilePreferences = {
+  profileId: number
+  customPrompt: string
+}
+
+export type UpdatePreferencesRequest = {
+  customPrompt: string
+}

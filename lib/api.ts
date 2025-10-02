@@ -7,6 +7,8 @@ import type {
   TradeResponse,
   ProfilesResponse,
   UserProfile,
+  ProfilePreferences,
+  UpdatePreferencesRequest,
 } from "./api-types"
 
 const API_BASE_URL = "https://knowsyou.jens.cz"
@@ -65,5 +67,18 @@ export async function getProfileById(id: number): Promise<UserProfile> {
 export async function rejectTrade(recommendationId: string): Promise<{ success: boolean; recommendationId: string; message: string }> {
   return fetchAPI<{ success: boolean; recommendationId: string; message: string }>(`/trades/${recommendationId}`, {
     method: "DELETE",
+  })
+}
+
+// Get profile preferences
+export async function getPreferences(profileId: number): Promise<ProfilePreferences> {
+  return fetchAPI<ProfilePreferences>(`/profiles/${profileId}/preferences`)
+}
+
+// Update profile preferences
+export async function updatePreferences(profileId: number, request: UpdatePreferencesRequest): Promise<ProfilePreferences> {
+  return fetchAPI<ProfilePreferences>(`/profiles/${profileId}/preferences`, {
+    method: "PUT",
+    body: JSON.stringify(request),
   })
 }

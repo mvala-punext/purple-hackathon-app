@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Check,
   Building2,
@@ -23,9 +23,10 @@ import {
   User,
   X,
   Flame,
+  Settings,
 } from "lucide-react"
-import { getRecommendations, getPortfolio, getEvents, executeTrade, getProfiles, getProfileById, rejectTrade } from "@/lib/api"
-import type { Recommendation, Portfolio, Event, UserProfile } from "@/lib/api-types"
+import { getRecommendations, getPortfolio, getEvents, executeTrade, getProfiles, getProfileById, rejectTrade, getPreferences, updatePreferences } from "@/lib/api"
+import type { Recommendation, Portfolio, Event, UserProfile, ProfilePreferences } from "@/lib/api-types"
 import { getEventIcon } from "@/lib/event-icons"
 
 type Screen = "login" | "profileSelection" | "integrations" | "analyzing" | "portfolio" | "challenges" | "events"
@@ -69,6 +70,11 @@ export default function MoneyForLife() {
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false)
+  const [preferences, setPreferences] = useState<ProfilePreferences | null>(null)
+  const [customPromptInput, setCustomPromptInput] = useState("")
+  const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false)
+  const [preferencesSaved, setPreferencesSaved] = useState(false)
 
   // Fetch data when entering portfolio screen
   useEffect(() => {
@@ -193,125 +199,67 @@ export default function MoneyForLife() {
     }, 3000)
   }
 
-  // Profile Modal Component
-  const ProfileModal = () => {
-    if (!showProfileModal || !selectedProfile) return null
+  const handleOpenProfileModal = () => {
+    setShowProfileModal(true)
+  }
 
-    return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300 p-4">
-        <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl">User Profile</CardTitle>
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Personal Info */}
-            <div className="flex items-center gap-4 pb-6 border-b">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
-                <User className="h-10 w-10 text-white" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold">{selectedProfile.firstName} {selectedProfile.lastName}</h3>
-                <p className="text-muted-foreground">{selectedProfile.age} years old • {selectedProfile.country}</p>
-              </div>
-            </div>
+  const handleOpenPreferencesModal = async () => {
+    setShowPreferencesModal(true)
+    if (selectedProfile) {
+      try {
+        const data = await getPreferences(selectedProfile.id)
+        setPreferences(data)
+        setCustomPromptInput(data.customPrompt || "") // Load existing preference into input
+      } catch (error) {
+        console.error("Failed to fetch preferences:", error)
+        setCustomPromptInput("") // Clear if error
+      }
+    }
+  }
 
-            {/* Investment Profile */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-purple-600">Investment Profile</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Investment Goal</p>
-                  <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentGoal.replace("_", " ")}</p>
-                </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Time Horizon</p>
-                  <p className="font-semibold">{selectedProfile.investmentProfile.timeHorizon} years</p>
-                </div>
-                <div className="p-4 bg-indigo-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Risk Tolerance</p>
-                  <p className="font-semibold capitalize">{selectedProfile.investmentProfile.riskTolerance}</p>
-                </div>
-                <div className="p-4 bg-violet-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Experience Level</p>
-                  <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentExperience}</p>
-                </div>
-              </div>
-            </div>
+  const handleUpdatePreferences = async () => {
+    if (!selectedProfile) return
+    setIsUpdatingPreferences(true)
+    try {
+      // Add minimum delay for better UX
+      await Promise.all([
+        updatePreferences(selectedProfile.id, { customPrompt: customPromptInput }),
+        new Promise(resolve => setTimeout(resolve, 800))
+      ])
 
-            {/* Financial Info */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-purple-600">Financial Details</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-muted-foreground">Annual Income</span>
-                  <span className="font-semibold">{selectedProfile.investmentProfile.annualIncome.amount.toLocaleString()} {selectedProfile.investmentProfile.annualIncome.currency}</span>
-                </div>
-                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-muted-foreground">Liquid Assets</span>
-                  <span className="font-semibold">{selectedProfile.investmentProfile.liquidAssets.amount.toLocaleString()} {selectedProfile.investmentProfile.liquidAssets.currency}</span>
-                </div>
-                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-muted-foreground">Monthly Investment Capacity</span>
-                  <span className="font-semibold">{selectedProfile.investmentProfile.monthlyInvestmentCapacity.amount.toLocaleString()} {selectedProfile.investmentProfile.monthlyInvestmentCapacity.currency}</span>
-                </div>
-                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-muted-foreground">Occupation</span>
-                  <span className="font-semibold capitalize">{selectedProfile.investmentProfile.occupation}</span>
-                </div>
-                <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-muted-foreground">Dependents</span>
-                  <span className="font-semibold">{selectedProfile.investmentProfile.dependents}</span>
-                </div>
-              </div>
-            </div>
+      const data = await getPreferences(selectedProfile.id)
+      setPreferences(data)
 
-            {/* Financial Obligations */}
-            <div className="space-y-3">
-              <h4 className="text-lg font-semibold text-purple-600">Financial Obligations</h4>
-              <div className="flex gap-2 flex-wrap">
-                {selectedProfile.investmentProfile.financialObligations.mortgage && (
-                  <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Mortgage</span>
-                )}
-                {selectedProfile.investmentProfile.financialObligations.loans && (
-                  <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Loans</span>
-                )}
-                {selectedProfile.investmentProfile.financialObligations.emergencyFund && (
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Emergency Fund</span>
-                )}
-              </div>
-            </div>
+      // Reset updating state and show success animation
+      setIsUpdatingPreferences(false)
+      setPreferencesSaved(true)
 
-            {/* Investment Preferences */}
-            {selectedProfile.investmentProfile.investmentPreferences.esgFocused && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="font-semibold text-green-700">ESG Focused Investment</p>
-                <p className="text-sm text-green-600 mt-1">Prefers environmental, social, and governance focused investments</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
+      // Wait for success animation, then close modal
+      setTimeout(() => {
+        setPreferencesSaved(false)
+        setShowPreferencesModal(false)
+      }, 1500)
+    } catch (error) {
+      console.error("Failed to update preferences:", error)
+      setIsUpdatingPreferences(false)
+    }
   }
 
   if (currentScreen === "login") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center space-y-2">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mb-4">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mb-2">
               <HandCoins className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="text-3xl font-bold">Welcome to Knows You App</CardTitle>
-            <CardDescription className="text-lg italic">"No effort. No stress. No overthinking."</CardDescription>
+            <div className="space-y-3">
+              <CardTitle className="text-3xl font-bold">Knows You App</CardTitle>
+              <p className="text-xl font-semibold text-gray-700">The future of investing is you.</p>
+              <p className="text-base text-muted-foreground">
+                No effort · No stress · No overthinking
+              </p>
+            </div>
           </CardHeader>
           <CardContent>
             <Button
@@ -498,12 +446,22 @@ export default function MoneyForLife() {
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-4xl font-bold">Your Portfolio</h1>
               {selectedProfile && (
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
-                >
-                  <User className="h-6 w-6 text-purple-600" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleOpenPreferencesModal}
+                    className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                    title="AI Preferences"
+                  >
+                    <Settings className="h-6 w-6 text-purple-600" />
+                  </button>
+                  <button
+                    onClick={handleOpenProfileModal}
+                    className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                    title="View Profile"
+                  >
+                    <User className="h-6 w-6 text-purple-600" />
+                  </button>
+                </div>
               )}
             </div>
             <p className="text-muted-foreground text-lg">
@@ -767,7 +725,180 @@ export default function MoneyForLife() {
           </div>
         )}
 
-        <ProfileModal />
+        {/* Preferences Modal */}
+        {showPreferencesModal && selectedProfile && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md shadow-2xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl">Custom AI Preferences</CardTitle>
+                  <button
+                    onClick={() => setShowPreferencesModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!preferencesSaved ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Add custom instructions to personalize how the AI generates recommendations for you
+                    </p>
+                    <div className="space-y-3">
+                      <textarea
+                        value={customPromptInput}
+                        onChange={(e) => setCustomPromptInput(e.target.value)}
+                        maxLength={20}
+                        rows={2}
+                        placeholder="e.g., ESG-focused"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                        disabled={isUpdatingPreferences}
+                      />
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">{customPromptInput.length}/20</span>
+                        <Button
+                          onClick={handleUpdatePreferences}
+                          disabled={isUpdatingPreferences || !customPromptInput.trim()}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          {isUpdatingPreferences ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </span>
+                          ) : (
+                            "Save"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8 text-center space-y-4">
+                    <div className="relative mx-auto w-20 h-20">
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full animate-in zoom-in duration-500" />
+                      <div className="absolute inset-0 flex items-center justify-center animate-in zoom-in duration-500 delay-100">
+                        <Check className="h-12 w-12 text-white animate-in zoom-in duration-300 delay-150" strokeWidth={3} />
+                      </div>
+                      <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" />
+                    </div>
+                    <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                      <h2 className="text-2xl font-bold text-green-600">Preferences Saved!</h2>
+                      <p className="text-muted-foreground">Your AI preferences have been updated successfully.</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Profile Modal */}
+        {showProfileModal && selectedProfile && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300 p-4">
+            <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl">User Profile</CardTitle>
+                  <button
+                    onClick={() => setShowProfileModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Personal Info */}
+                <div className="flex items-center gap-4 pb-6 border-b">
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                    <User className="h-10 w-10 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">{selectedProfile.firstName} {selectedProfile.lastName}</h3>
+                    <p className="text-muted-foreground">{selectedProfile.age} years old • {selectedProfile.country}</p>
+                  </div>
+                </div>
+
+                {/* Investment Profile */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-purple-600">Investment Profile</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Investment Goal</p>
+                      <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentGoal.replace("_", " ")}</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Time Horizon</p>
+                      <p className="font-semibold">{selectedProfile.investmentProfile.timeHorizon} years</p>
+                    </div>
+                    <div className="p-4 bg-indigo-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Risk Tolerance</p>
+                      <p className="font-semibold capitalize">{selectedProfile.investmentProfile.riskTolerance}</p>
+                    </div>
+                    <div className="p-4 bg-violet-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Experience Level</p>
+                      <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentExperience}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Info */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-purple-600">Financial Details</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Annual Income</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.annualIncome.amount.toLocaleString()} {selectedProfile.investmentProfile.annualIncome.currency}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Liquid Assets</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.liquidAssets.amount.toLocaleString()} {selectedProfile.investmentProfile.liquidAssets.currency}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Monthly Investment Capacity</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.monthlyInvestmentCapacity.amount.toLocaleString()} {selectedProfile.investmentProfile.monthlyInvestmentCapacity.currency}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Occupation</span>
+                      <span className="font-semibold capitalize">{selectedProfile.investmentProfile.occupation}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Dependents</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.dependents}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Obligations */}
+                <div className="space-y-3">
+                  <h4 className="text-lg font-semibold text-purple-600">Financial Obligations</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedProfile.investmentProfile.financialObligations.mortgage && (
+                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Mortgage</span>
+                    )}
+                    {selectedProfile.investmentProfile.financialObligations.loans && (
+                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Loans</span>
+                    )}
+                    {selectedProfile.investmentProfile.financialObligations.emergencyFund && (
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Emergency Fund</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Investment Preferences */}
+                {selectedProfile.investmentProfile.investmentPreferences.esgFocused && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="font-semibold text-green-700">ESG Focused Investment</p>
+                    <p className="text-sm text-green-600 mt-1">Prefers environmental, social, and governance focused investments</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
           <div className="max-w-4xl mx-auto flex">
@@ -806,12 +937,22 @@ export default function MoneyForLife() {
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-4xl font-bold">Life Events</h1>
               {selectedProfile && (
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
-                >
-                  <User className="h-6 w-6 text-purple-600" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleOpenPreferencesModal}
+                    className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                    title="AI Preferences"
+                  >
+                    <Settings className="h-6 w-6 text-purple-600" />
+                  </button>
+                  <button
+                    onClick={handleOpenProfileModal}
+                    className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                    title="View Profile"
+                  >
+                    <User className="h-6 w-6 text-purple-600" />
+                  </button>
+                </div>
               )}
             </div>
             <p className="text-muted-foreground text-lg">
@@ -873,7 +1014,180 @@ export default function MoneyForLife() {
           )}
         </div>
 
-        <ProfileModal />
+        {/* Preferences Modal */}
+        {showPreferencesModal && selectedProfile && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md shadow-2xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl">Custom AI Preferences</CardTitle>
+                  <button
+                    onClick={() => setShowPreferencesModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!preferencesSaved ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Add custom instructions to personalize how the AI generates recommendations for you
+                    </p>
+                    <div className="space-y-3">
+                      <textarea
+                        value={customPromptInput}
+                        onChange={(e) => setCustomPromptInput(e.target.value)}
+                        maxLength={20}
+                        rows={2}
+                        placeholder="e.g., ESG-focused"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                        disabled={isUpdatingPreferences}
+                      />
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">{customPromptInput.length}/20</span>
+                        <Button
+                          onClick={handleUpdatePreferences}
+                          disabled={isUpdatingPreferences || !customPromptInput.trim()}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          {isUpdatingPreferences ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </span>
+                          ) : (
+                            "Save"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8 text-center space-y-4">
+                    <div className="relative mx-auto w-20 h-20">
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full animate-in zoom-in duration-500" />
+                      <div className="absolute inset-0 flex items-center justify-center animate-in zoom-in duration-500 delay-100">
+                        <Check className="h-12 w-12 text-white animate-in zoom-in duration-300 delay-150" strokeWidth={3} />
+                      </div>
+                      <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" />
+                    </div>
+                    <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                      <h2 className="text-2xl font-bold text-green-600">Preferences Saved!</h2>
+                      <p className="text-muted-foreground">Your AI preferences have been updated successfully.</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Profile Modal */}
+        {showProfileModal && selectedProfile && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300 p-4">
+            <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl">User Profile</CardTitle>
+                  <button
+                    onClick={() => setShowProfileModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Personal Info */}
+                <div className="flex items-center gap-4 pb-6 border-b">
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                    <User className="h-10 w-10 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">{selectedProfile.firstName} {selectedProfile.lastName}</h3>
+                    <p className="text-muted-foreground">{selectedProfile.age} years old • {selectedProfile.country}</p>
+                  </div>
+                </div>
+
+                {/* Investment Profile */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-purple-600">Investment Profile</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Investment Goal</p>
+                      <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentGoal.replace("_", " ")}</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Time Horizon</p>
+                      <p className="font-semibold">{selectedProfile.investmentProfile.timeHorizon} years</p>
+                    </div>
+                    <div className="p-4 bg-indigo-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Risk Tolerance</p>
+                      <p className="font-semibold capitalize">{selectedProfile.investmentProfile.riskTolerance}</p>
+                    </div>
+                    <div className="p-4 bg-violet-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Experience Level</p>
+                      <p className="font-semibold capitalize">{selectedProfile.investmentProfile.investmentExperience}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Info */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-purple-600">Financial Details</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Annual Income</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.annualIncome.amount.toLocaleString()} {selectedProfile.investmentProfile.annualIncome.currency}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Liquid Assets</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.liquidAssets.amount.toLocaleString()} {selectedProfile.investmentProfile.liquidAssets.currency}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Monthly Investment Capacity</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.monthlyInvestmentCapacity.amount.toLocaleString()} {selectedProfile.investmentProfile.monthlyInvestmentCapacity.currency}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Occupation</span>
+                      <span className="font-semibold capitalize">{selectedProfile.investmentProfile.occupation}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-muted-foreground">Dependents</span>
+                      <span className="font-semibold">{selectedProfile.investmentProfile.dependents}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Obligations */}
+                <div className="space-y-3">
+                  <h4 className="text-lg font-semibold text-purple-600">Financial Obligations</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedProfile.investmentProfile.financialObligations.mortgage && (
+                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Mortgage</span>
+                    )}
+                    {selectedProfile.investmentProfile.financialObligations.loans && (
+                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">Loans</span>
+                    )}
+                    {selectedProfile.investmentProfile.financialObligations.emergencyFund && (
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Emergency Fund</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Investment Preferences */}
+                {selectedProfile.investmentProfile.investmentPreferences.esgFocused && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="font-semibold text-green-700">ESG Focused Investment</p>
+                    <p className="text-sm text-green-600 mt-1">Prefers environmental, social, and governance focused investments</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
           <div className="max-w-4xl mx-auto flex">
@@ -911,12 +1225,22 @@ export default function MoneyForLife() {
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-4xl font-bold">This Week's Challenges</h1>
             {selectedProfile && (
-              <button
-                onClick={() => setShowProfileModal(true)}
-                className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
-              >
-                <User className="h-6 w-6 text-purple-600" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleOpenPreferencesModal}
+                  className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                  title="AI Preferences"
+                >
+                  <Settings className="h-6 w-6 text-purple-600" />
+                </button>
+                <button
+                  onClick={handleOpenProfileModal}
+                  className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border-2 border-purple-200 hover:border-purple-400"
+                  title="View Profile"
+                >
+                  <User className="h-6 w-6 text-purple-600" />
+                </button>
+              </div>
             )}
           </div>
           <p className="text-muted-foreground text-lg">Complete challenges to build healthy financial habits</p>
@@ -1053,7 +1377,55 @@ export default function MoneyForLife() {
         </div>
       </div>
 
-      <ProfileModal />
+      {/* Simplified Profile Modal */}
+      {showProfileModal && selectedProfile && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl">Custom AI Preferences</CardTitle>
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Add custom instructions to personalize how the AI generates recommendations for you
+              </p>
+              <div className="space-y-3">
+                <textarea
+                  value={customPromptInput}
+                  onChange={(e) => setCustomPromptInput(e.target.value)}
+                  maxLength={200}
+                  rows={4}
+                  placeholder="e.g., I prefer sustainable and ESG-focused investments"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                />
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">{customPromptInput.length}/200</span>
+                  <Button
+                    onClick={handleUpdatePreferences}
+                    disabled={isUpdatingPreferences || !customPromptInput.trim()}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isUpdatingPreferences ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </div>
+              {preferences && preferences.customPrompt && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm font-medium text-purple-900">Current preference:</p>
+                  <p className="text-sm text-purple-700 mt-1">{preferences.customPrompt}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
         <div className="max-w-4xl mx-auto flex">

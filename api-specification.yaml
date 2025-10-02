@@ -110,6 +110,82 @@ paths:
         '500':
           description: Internal server error
 
+  /profiles/{id}/preferences:
+    get:
+      summary: Get profile preferences
+      description: Returns the custom investment preferences/prompt for a profile.
+      operationId: getProfilePreferences
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User profile ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Profile preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profileId:
+                    type: integer
+                    example: 1
+                  customPrompt:
+                    type: string
+                    example: "I prefer sustainable and ESG-focused investments"
+        '500':
+          description: Internal server error
+    put:
+      summary: Update profile preferences
+      description: Sets or updates the custom investment preferences/prompt for a profile.
+      operationId: putProfilePreferences
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User profile ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customPrompt
+              properties:
+                customPrompt:
+                  type: string
+                  description: Custom investment preferences or instructions
+                  example: "I prefer sustainable and ESG-focused investments"
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  profileId:
+                    type: integer
+                    example: 1
+                  customPrompt:
+                    type: string
+                    example: "I prefer sustainable and ESG-focused investments"
+        '400':
+          description: Invalid request body
+        '500':
+          description: Internal server error
+
   /profiles/{id}/portfolio:
     get:
       summary: Get portfolio for a profile
